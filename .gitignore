@@ -1,0 +1,56 @@
+# Archivos temporales de PDFs
+*.pdf
+temp_*
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+.eggs/
+*.manifest
+*.spec
+
+# --- Virtualenv / Poetry ---
+.env
+.venv/
+env/
+venv/
+ENV/
+Pipfile.lock
+poetry.lock
+
+# --- FastAPI / Uvicorn / Logs ---
+*.log
+*.sqlite3
+instance/
+*.db
+
+# --- VSCode / PyCharm / IDEs ---
+.vscode/
+.idea/
+*.iml
+
+# --- Testing / Coverage ---
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.pytest_cache/
+.mypy_cache/
+
+# --- Docker ---
+*.pid
+docker-compose.override.yml
+.dockerignore
+
+# --- OS Files ---
+.DS_Store
+Thumbs.db

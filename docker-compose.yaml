@@ -1,0 +1,27 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8500:8000"
+    environment:
+      - TIKA_SERVER_URL=http://tika:9998
+      - ELASTICSEARCH_URL=${ELASTICSEARCH_URL}
+      - ELASTICSEARCH_USER=${ELASTICSEARCH_USER}
+      - ELASTICSEARCH_PASSWORD=${ELASTICSEARCH_PASSWORD}
+    depends_on:
+      - tika
+    networks:
+      - edi-ingesta-network
+    volumes:
+      - ./src:/app/src
+      - ./.env:/app/.env
+
+  tika:
+    image: apache/tika:3.1.0.0-full
+    ports:
+      - "9998:9998"
+    networks:
+      - edi-ingesta-network
+
+networks:
+  edi-ingesta-network:
