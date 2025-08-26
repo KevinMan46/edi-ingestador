@@ -103,34 +103,34 @@ class PDFProcessor:
                     "rutaArchivoDigital": pdf_path,
                     "contenido": page_contents
                 },
-                "acciones": {
-                    # "anotacionId": "ANOT-001",
-                    # "codigoUsuario": "USR-001",
-                    # "color": "amarillo",
-                    # "fechaRegistro": "2025-08-26T15:30:00",
-                    # "marcaTiempo": "1693073400",
-                    # "nroPaginaArchivoDig": "1",
-                    # "palabrasClave": "clima, economía",
-                    # "posicionFin": "200",
-                    # "posicionIni": "150",
-                    # "tema": "Medio ambiente",
-                    # "texto": "Anotación sobre cambio climático",
-                    # "textoCoordenada": "x1,y1,x2,y2",
-                    # "tipoAnotacion": "comentario",
-                    # "titulo": "Observación del documento",
-                    # "archivoDigitalHijos": [
-                    #     {
-                    #         "archivoDigitalId": "ADG-H001",
-                    #         "rutaArchivoDigital": "/archivos/expediente_2025/anexo1.pdf",
-                    #         "contenido": [
-                    #         {
-                    #             "numeroPagina": 1,
-                    #             "texto": "Texto de la primera página del anexo."
-                    #         }
-                    #         ]
-                    #     }
-                    # ]
-                }
+                # "acciones": {
+                #     "anotacionId": "ANOT-001",
+                #     "codigoUsuario": "USR-001",
+                #     "color": "amarillo",
+                #     "fechaRegistro": "2025-08-26T15:30:00",
+                #     "marcaTiempo": "1693073400",
+                #     "nroPaginaArchivoDig": "1",
+                #     "palabrasClave": "clima, economía",
+                #     "posicionFin": "200",
+                #     "posicionIni": "150",
+                #     "tema": "Medio ambiente",
+                #     "texto": "Anotación sobre cambio climático",
+                #     "textoCoordenada": "x1,y1,x2,y2",
+                #     "tipoAnotacion": "comentario",
+                #     "titulo": "Observación del documento",
+                #     "archivoDigitalHijos": [
+                #         {
+                #             "archivoDigitalId": "ADG-H001",
+                #             "rutaArchivoDigital": "/archivos/expediente_2025/anexo1.pdf",
+                #             "contenido": [
+                #             {
+                #                 "numeroPagina": 1,
+                #                 "texto": "Texto de la primera página del anexo."
+                #             }
+                #             ]
+                #         }
+                #     ]
+                # }
             }
 
             pdf.close()
