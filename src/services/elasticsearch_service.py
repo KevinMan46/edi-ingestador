@@ -13,77 +13,7 @@ class ElasticsearchService:
         self.index_name = settings.INDEX_NAME
 
     def create_index(self):
-        mapping = {
-            "settings": {
-                "index": {
-                    "number_of_shards": 1,
-                    "number_of_replicas": 1
-                }
-            },
-            "mappings": {
-                "properties": {
-                    "anotacion": {
-                        "properties": {
-                            "anotacionId": {"type": "keyword"},
-                            "archivoDigitalHijos": {
-                                "type": "nested",
-                                "properties": {
-                                    "archivoDigitalId": {"type": "keyword"},
-                                    "conversionArchivoDigital": {
-                                        "type": "nested",
-                                        "properties": {
-                                            "numeroPagina": {"type": "integer"},
-                                            "texto": {"type": "text"}
-                                        }
-                                    },
-                                    "nombreArchivoDigital": {"type": "keyword"},
-                                    "nombreOriginalArchivoDigital": {"type": "keyword"},
-                                    "rutaArchivoDigital": {"type": "keyword"}
-                                }
-                            },
-                            "codigoUsuario": {"type": "keyword"},
-                            "color": {"type": "keyword"},
-                            "fechaRegistro": {"type": "date"},
-                            "marcaTiempo": {"type": "keyword"},
-                            "nroPaginaArchivoDig": {"type": "keyword"},
-                            "palabrasClave": {"type": "text"},
-                            "posicionFin": {"type": "keyword"},
-                            "posicionIni": {"type": "keyword"},
-                            "tema": {"type": "text"},
-                            "texto": {"type": "text"},
-                            "textoCoordenada": {"type": "keyword"},
-                            "tipoAnotacion": {"type": "keyword"},
-                            "titulo": {"type": "text"}
-                        }
-                    },
-                    "archivoDigitalPadre": {
-                        "properties": {
-                            "archivoDigitalId": {"type": "keyword"},
-                            "conversionArchivoDigital": {
-                                "type": "nested",
-                                "properties": {
-                                    "numeroPagina": {"type": "integer"},
-                                    "texto": {"type": "text"}
-                                }
-                            },
-                            "nombreArchivoDigital": {"type": "keyword"},
-                            "nombreOriginalArchivoDigital": {"type": "keyword"},
-                            "rutaArchivoDigital": {"type": "keyword"}
-                        }
-                    },
-                    "conversionDocumento": {"type": "text"},
-                    "documentoId": {"type": "keyword"},
-                    "flagActivo": {"type": "keyword"},
-                    "textoCompleto": {"type": "text"},
-                    "expedienteId": {"type": "integer"},
-                    "numeroExpediente": {"type": "keyword"},
-                    "anioExpediente": {"type": "integer"},
-                    "cuadernoId": {"type": "integer"},
-                    "docId": {"type": "integer"},
-                    "metadata": {"type": "object", "enabled": True},
-                }
-            }
-        }
+        mapping = {}
         if not self.es.indices.exists(index=self.index_name):
             self.es.indices.create(index=self.index_name, body=mapping)
             logger.info(f"Created Elasticsearch index: {self.index_name}")
@@ -95,61 +25,51 @@ class ElasticsearchService:
         except Exception as e:
             logger.error(f"Error indexing document: {str(e)}")
             raise
-
-    from elasticsearch import Elasticsearch
-
-    def update_document(
-        self,
-        archivo_digital_id: str,
-        expediente_id: str,
-        cuaderno_id: str,
-        documento_id: str,
-        nro_expediente: str,
-        anio_expediente: int,
-        contenido: list
-    ):
+    def update_document_x(self, doc):
+        try:
+            response = self.es.update_by_query(index=self.index_name, body=doc)
+            #logger.info("Document updated successfully")
+            #return response
+            logger.info(response)
+            return response
+        except Exception as e:
+            logger.error(f"Error updating document: {str(e)}")
+            raise
+    def update_document(self, archivo_digital_id, update_fields):
         """
-        Actualiza un documento en Elasticsearch por archivoDigitalId.
-
-        :param es_client: instancia de Elasticsearch
-        :param index_name: nombre del índice
-        :param archivo_digital_id: valor de archivoDigitalId a buscar
-        :param expediente_id: nuevo valor para expedienteId
-        :param cuaderno_id: nuevo valor para cuadernoId
-        :param documento_id: nuevo valor para documentoId
-        :param nro_expediente: nuevo valor para nroExpediente
-        :param anio_expediente: nuevo valor para anioExpediente
-        :param contenido: lista de objetos con {"pagina": int, "texto": str}
+        Realiza un update_by_query en el índice 'archivo_digital_edi' basado en archivoDigitalId.
+        
+        Args:
+            es_client: Instancia del cliente de Elasticsearch
+            archivo_digital_id: ID del archivo digital a actualizar (ej. 3130)
+            update_fields: Diccionario con los campos a actualizar (ej. {'expedienteId': '123', 'anioExpediente': 2023})
+        
+        Returns:
+            Respuesta de Elasticsearch con el resultado de la operación
         """
-        body = {
+        query = {
             "query": {
-                "term": {  # usar term en lugar de match para keyword exacto
-                    "archivoDigitalId.keyword": archivo_digital_id
+                "match": {
+                    "archivoDigitalId": archivo_digital_id
                 }
             },
             "script": {
-                "source": (
-                    "ctx._source.expedienteId = params.expedienteId; "
-                    "ctx._source.cuadernoId = params.cuadernoId; "
-                    "ctx._source.documentoId = params.documentoId; "
-                    "ctx._source.nroExpediente = params.nroExpediente; "
-                    "ctx._source.anioExpediente = params.anioExpediente; "
-                    "ctx._source.archivoDigital.contenido = params.contenido;"
-                ),
+                "source": ";".join([f"ctx._source.{key} = params.{key}" for key in update_fields.keys()]),
                 "lang": "painless",
-                "params": {
-                    "expedienteId": expediente_id,
-                    "cuadernoId": cuaderno_id,
-                    "documentoId": documento_id,
-                    "nroExpediente": nro_expediente,
-                    "anioExpediente": anio_expediente,
-                    "contenido": contenido
-                }
+                "params": update_fields
             }
         }
-
-        response = self.es.update_by_query(index=self.index_name, body=body)
-        return response
+        
+        try:
+            response = self.es.update_by_query(
+                index="archivo_digital_edi",
+                body=query,
+                conflicts="proceed"
+            )
+            return response
+        except Exception as e:
+            print(f"Error al ejecutar update_by_query: {str(e)}")
+            return None
 
     def document_exists(self, archivo_digital_id):
         """
@@ -177,11 +97,14 @@ class ElasticsearchService:
             )
             
             # Verificar si hay documentos en los resultados
-            return response["hits"]["total"]["value"] > 0
+            if response["hits"]["total"]["value"] > 0:
+                return 1
+            else:
+                return 0
             
         except Exception as e:
             print(f"Error al verificar el documento: {e}")
-            return False
+            return -1
     
     def search(self, query):
         try:

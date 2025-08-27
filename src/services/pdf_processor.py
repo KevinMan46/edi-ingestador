@@ -13,9 +13,22 @@ class PDFProcessor:
     def __init__(self):
         tika.TikaClientOnly = True
         self.tika_server_url = settings.TIKA_SERVER_URL
-        self.es = ElasticsearchService
+        #self.es = ElasticsearchService
 
-    def process_pdf(self, pdf_path, file_name, expediente_id, cuaderno_id, documento_id, archivo_digital_id, nro_expediente, anio_expediente):
+    def process_pdf(self, pdf_path, file_name, expediente_id, cuaderno_id, documento_id, archivo_digital_id, nro_expediente, anio_expediente, es: ElasticsearchService):
+        """
+        Actualiza un documento en Elasticsearch por archivoDigitalId.
+
+        :param es_client: instancia de Elasticsearch
+        :param index_name: nombre del índice
+        :param archivo_digital_id: valor de archivoDigitalId a buscar
+        :param expediente_id: nuevo valor para expedienteId
+        :param cuaderno_id: nuevo valor para cuadernoId
+        :param documento_id: nuevo valor para documentoId
+        :param nro_expediente: nuevo valor para nroExpediente
+        :param anio_expediente: nuevo valor para anioExpediente
+        :param contenido: lista de objetos con {"pagina": int, "texto": str}
+        """
         try:
             logger.info(f"Processing PDF: {file_name}")
             response = parser.from_buffer("Test", self.tika_server_url)
@@ -46,70 +59,54 @@ class PDFProcessor:
                 page_contents.append({"numeroPagina": page_num + 1, "texto": content})
                 pages_processed += 1
                 os.remove(temp_pdf)
-
-            #antigua versión, cuando el índice era: anotaciones_archivo 
-            # doc_legacy = {
-            #     "anotacion": {
-            #         "anotacionId": "123",
-            #         "archivoDigitalHijos": [
-            #             {
-            #                 "archivoDigitalId": documento_id,
-            #                 "conversionArchivoDigital": [],
-            #                 "nombreArchivoDigital": "file1.pdf",
-            #                 "nombreOriginalArchivoDigital": "original1.pdf",
-            #                 "rutaArchivoDigital": "/path/to/demopath"
-            #             }
-            #         ],
-            #         "codigoUsuario": "user1",
-            #         "color": "blue",
-            #         "fechaRegistro": "2025-08-12",
-            #         "marcaTiempo": "2025-08-12T14:34:00",
-            #         "nroPaginaArchivoDig": str(pages_processed),
-            #         "palabrasClave": "clave1 clave2",
-            #         "posicionFin": "100",
-            #         "posicionIni": "0",
-            #         "tema": "1",
-            #         "texto": "texto de la anotación",
-            #         "textoCoordenada": "x:10,y:20",
-            #         "tipoAnotacion": "nota",
-            #         "titulo": "Título de la anotación"
-            #     },
-            #     "archivoDigitalPadre": {
-            #         "archivoDigitalId": documento_id,
-            #         "conversionArchivoDigital": page_contents,
-            #         "nombreArchivoDigital": file_name,
-            #         "nombreOriginalArchivoDigital": file_name,
-            #         "rutaArchivoDigital": pdf_path
-            #     },
-            #     "conversionDocumento": "texto del documento-de ejemplo",
-            #     "documentoId": documento_id,
-            #     "flagActivo": "true",
-            #     "textoCompleto": "texto completo del documento-de ejemplo",
-            #     "expedienteId": expediente_id,
-            #     "numeroExpediente": nro_expediente,
-            #     "anioExpediente": anio_expediente,
-            #     "cuadernoId": cuaderno_id,
-            #     "metadata": parsed.get("metadata", {}),
-            # }
-
-            #versión actual, ahora el índice es: "archivo_digital_edi" con la estructura:
-            exists = self.es.document_exists(archivo_digital_id)
-            if exists:
-                doc = {
-                    "anioExpediente": anio_expediente,
-                    "archivoDigitalId": archivo_digital_id,
-                    "cuadernoId": cuaderno_id,
-                    "documentoId": documento_id,
-                    "expedienteId": expediente_id,
-                    "numeroExpediente": nro_expediente,
-                    "metadata": parsed.get("metadata", {}),
-                    "archivoDigital": {
-                        "rutaArchivoDigital": pdf_path,
-                        "contenido": page_contents
+            #es = ElasticsearchService
+            exists = es.document_exists(archivo_digital_id)
+            if exists == 1:
+                doc_x = {
+                    "query": {
+                        "term": {  # usar term en lugar de match para keyword exacto
+                            "archivoDigitalId.keyword": archivo_digital_id
+                        }
                     },
-                    "acciones": {}
+                    "script": {
+                        "source": (
+                            "ctx._source.expedienteId = params.expedienteId; "
+                            "ctx._source.cuadernoId = params.cuadernoId; "
+                            "ctx._source.documentoId = params.documentoId; "
+                            "ctx._source.nroExpediente = params.nroExpediente; "
+                            "ctx._source.anioExpediente = params.anioExpediente; "
+                            "ctx._source.archivoDigital.contenido = params.contenido;"
+                        ),
+                        "lang": "painless",
+                        "params": {
+                            "expedienteId": expediente_id,
+                            "cuadernoId": cuaderno_id,
+                            "documentoId": documento_id,
+                            "metadata": parsed.get("metadata", {}),
+                            "nroExpediente": nro_expediente,
+                            "anioExpediente": anio_expediente,
+                            "contenido": page_contents
+                        }
+                    }
+                }
+                update_data = {
+                    "expedienteId": "ABC123",
+                    "anioExpediente": 2025
+                }
+                doc = {
+                    "query": {
+                        "match": {
+                            "archivoDigitalId": archivo_digital_id
+                        }
+                    },
+                    "script": {
+                        "source": ";".join([f"ctx._source.{key} = params.{key}" for key in update_data.keys()]),
+                        "lang": "painless",
+                        "params": update_data
+                    }
                 }
             else:
+                #versión actual, ahora el índice es: "archivo_digital_edi" con la estructura:
                 doc = {
                     "anioExpediente": anio_expediente,
                     "archivoDigitalId": archivo_digital_id,
@@ -141,7 +138,8 @@ class PDFProcessor:
             return {
                 "status": "failure",
                 "file_name": file_name,
-                "pages_processed": "NNNNNNN",
+                "pages_processed": 0,
                 "pages": [],
+                "exists": -1,
                 "message": str(e)
             }

@@ -58,17 +58,20 @@ def setup_routes(app: FastAPI, es_service: ElasticsearchService, pdf_processor: 
         try:
             result = pdf_processor.process_pdf(
                 temp_file_path, final_file_name, expediente_id, cuaderno_id,
-                documento_id, archivo_digital_id, nro_expediente, anio_expediente
+                documento_id, archivo_digital_id, nro_expediente, anio_expediente, es_service
             )
             if result["status"] == "success":
-                es_service.index_document(result["doc"])
-            #return result
+                if result["exists"] == "1":
+                    es_service.update_document(result["doc"])
+                else:
+                    es_service.index_document(result["doc"])
             return {
                 "status": "success",
                 "pages_processed": result["pages_processed"],
                 "pages": result["pages"],
                 "message": result["message"],
                 "file_name": result["file_name"],
+                "existence": result["exists"]
             }
         finally:
             os.unlink(temp_file_path)
