@@ -61,7 +61,7 @@ def setup_routes(app: FastAPI, es_service: ElasticsearchService, pdf_processor: 
                 documento_id, archivo_digital_id, nro_expediente, anio_expediente, es_service
             )
             if result["status"] == "success":
-                if result["exists"] == "1":
+                if result["exists"] == 1:
                     es_service.update_document(result["doc"])
                 else:
                     es_service.index_document(result["doc"])

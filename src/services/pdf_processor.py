@@ -62,47 +62,30 @@ class PDFProcessor:
             #es = ElasticsearchService
             exists = es.document_exists(archivo_digital_id)
             if exists == 1:
-                doc_x = {
+                doc = {
                     "query": {
-                        "term": {  # usar term en lugar de match para keyword exacto
-                            "archivoDigitalId.keyword": archivo_digital_id
+                        "term": {
+                            "archivoDigitalId": archivo_digital_id
                         }
                     },
                     "script": {
-                        "source": (
-                            "ctx._source.expedienteId = params.expedienteId; "
-                            "ctx._source.cuadernoId = params.cuadernoId; "
-                            "ctx._source.documentoId = params.documentoId; "
-                            "ctx._source.nroExpediente = params.nroExpediente; "
-                            "ctx._source.anioExpediente = params.anioExpediente; "
-                            "ctx._source.archivoDigital.contenido = params.contenido;"
-                        ),
+                        "source": "ctx._source.expedienteId = params.expedienteId; "
+                        "ctx._source.cuadernoId = params.cuadernoId; "
+                        "ctx._source.documentoId = params.documentoId; "
+                        "ctx._source.nroExpediente = params.nroExpediente; "
+                        "ctx._source.metadata = params.metadata; "
+                        "ctx._source.anioExpediente = params.anioExpediente; "
+                        "ctx._source.archivoDigital.contenido = params.contenido;",
                         "lang": "painless",
                         "params": {
                             "expedienteId": expediente_id,
                             "cuadernoId": cuaderno_id,
                             "documentoId": documento_id,
-                            "metadata": parsed.get("metadata", {}),
                             "nroExpediente": nro_expediente,
+                            "metadata": parsed.get("metadata", {}),
                             "anioExpediente": anio_expediente,
                             "contenido": page_contents
                         }
-                    }
-                }
-                update_data = {
-                    "expedienteId": "ABC123",
-                    "anioExpediente": 2025
-                }
-                doc = {
-                    "query": {
-                        "match": {
-                            "archivoDigitalId": archivo_digital_id
-                        }
-                    },
-                    "script": {
-                        "source": ";".join([f"ctx._source.{key} = params.{key}" for key in update_data.keys()]),
-                        "lang": "painless",
-                        "params": update_data
                     }
                 }
             else:
@@ -121,6 +104,7 @@ class PDFProcessor:
                     },
                     "acciones": {}
                 }
+
 
             pdf.close()
             return {

@@ -25,9 +25,9 @@ class ElasticsearchService:
         except Exception as e:
             logger.error(f"Error indexing document: {str(e)}")
             raise
-    def update_document_x(self, doc):
+    def update_document(self, doc):
         try:
-            response = self.es.update_by_query(index=self.index_name, body=doc)
+            response = self.es.update_by_query(index=self.index_name, body=doc, conflicts="proceed")
             #logger.info("Document updated successfully")
             #return response
             logger.info(response)
@@ -35,7 +35,7 @@ class ElasticsearchService:
         except Exception as e:
             logger.error(f"Error updating document: {str(e)}")
             raise
-    def update_document(self, archivo_digital_id, update_fields):
+    def update_document_x(self, archivo_digital_id, update_fields):
         """
         Realiza un update_by_query en el índice 'archivo_digital_edi' basado en archivoDigitalId.
         
