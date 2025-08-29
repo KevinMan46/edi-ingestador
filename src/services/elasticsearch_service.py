@@ -35,41 +35,6 @@ class ElasticsearchService:
         except Exception as e:
             logger.error(f"Error updating document: {str(e)}")
             raise
-    def update_document_x(self, archivo_digital_id, update_fields):
-        """
-        Realiza un update_by_query en el índice 'archivo_digital_edi' basado en archivoDigitalId.
-        
-        Args:
-            es_client: Instancia del cliente de Elasticsearch
-            archivo_digital_id: ID del archivo digital a actualizar (ej. 3130)
-            update_fields: Diccionario con los campos a actualizar (ej. {'expedienteId': '123', 'anioExpediente': 2023})
-        
-        Returns:
-            Respuesta de Elasticsearch con el resultado de la operación
-        """
-        query = {
-            "query": {
-                "match": {
-                    "archivoDigitalId": archivo_digital_id
-                }
-            },
-            "script": {
-                "source": ";".join([f"ctx._source.{key} = params.{key}" for key in update_fields.keys()]),
-                "lang": "painless",
-                "params": update_fields
-            }
-        }
-        
-        try:
-            response = self.es.update_by_query(
-                index="archivo_digital_edi",
-                body=query,
-                conflicts="proceed"
-            )
-            return response
-        except Exception as e:
-            print(f"Error al ejecutar update_by_query: {str(e)}")
-            return None
 
     def document_exists(self, archivo_digital_id):
         """

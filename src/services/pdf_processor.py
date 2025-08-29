@@ -29,6 +29,13 @@ class PDFProcessor:
         :param anio_expediente: nuevo valor para anioExpediente
         :param contenido: lista de objetos con {"pagina": int, "texto": str}
         """
+        # Configurar opciones para forzar OCR
+        request_options = {
+            "headers": {
+                "X-Tika-PDFocrStrategy": "ocr_and_text",
+                "X-Tika-OCRLanguage": "spa"
+            }
+        }
         try:
             logger.info(f"Processing PDF: {file_name}")
             response = parser.from_buffer("Test", self.tika_server_url)
@@ -44,17 +51,22 @@ class PDFProcessor:
                 temp_pdf = f"temp_page_{page_num + 1}.pdf"
                 page_pdf.save(temp_pdf)
                 page_pdf.close()
-
                 logger.info(f"Processing page {page_num + 1} with Tika")
-                parsed = parser.from_file(temp_pdf, self.tika_server_url, xmlContent=False)
-                content = parsed.get("content", "").strip()
+
+                #opción solo con TXTS PURO Ó ESCANEADO
+                parsed = parser.from_file(temp_pdf, self.tika_server_url, xmlContent=False) #originalmente estaba así
+
+                #opción para que tomo todo dentro de una página (fotos incrustadas y escaneado (híbrido)), esto es más completo, pero demasiado lento y a veces duplica el texto de una hoja
+                #parsed = parser.from_file(temp_pdf, self.tika_server_url, requestOptions=request_options, xmlContent=False)
+
+                content = (parsed.get("content", "") or "").strip()
                 logger.info(f"Extracted content length: {len(content)}")
 
-                if not content:
-                    logger.info(f"Content empty, trying OCR for page {page_num + 1}")
-                    parsed = parser.from_file(temp_pdf, self.tika_server_url, xmlContent=False, requestOptions={"X-Tika-PDFocrStrategy": "ocr_only"})
-                    content = parsed.get("content", "").strip()
-                    logger.info(f"OCR content length: {len(content)}")
+                # if not content:
+                #     logger.info(f"Content empty, trying OCR for page {page_num + 1}")
+                #     parsed = parser.from_file(temp_pdf, self.tika_server_url, xmlContent=False, requestOptions={"X-Tika-PDFocrStrategy": "ocr_only"})
+                #     content = parsed.get("content", "").strip()
+                #     logger.info(f"OCR content length: {len(content)}")
 
                 page_contents.append({"numeroPagina": page_num + 1, "texto": content})
                 pages_processed += 1
@@ -110,10 +122,10 @@ class PDFProcessor:
             return {
                 "status": "success",
                 "file_name": file_name,
-                "pages_processed": pages_processed,
                 "pages": page_contents,
                 "message": "All file processed successfully",
                 "exists": exists,
+                "pages_processed": pages_processed,
                 "doc": doc
             }
             #return doc
@@ -123,7 +135,7 @@ class PDFProcessor:
                 "status": "failure",
                 "file_name": file_name,
                 "pages_processed": 0,
-                "pages": [],
                 "exists": -1,
-                "message": str(e)
+                "pages": [],
+                "message": "Error processing PDF: "+str(e)
             }
