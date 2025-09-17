@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<properties>
+  <parsers>
+    <parser class="org.apache.tika.parser.DefaultParser">
+      <mime-exclude>application/pdf</mime-exclude>
+    </parser>
+    <parser class="org.apache.tika.parser.pdf.PDFParser">
+      <mime>application/pdf</mime>
+      <params>
+        <param name="extractInlineImages" type="bool">true</param>
+        <param name="ocrStrategy" type="string">AUTO</param>
+      </params>
+    </parser>
+  </parsers>
+  <ocrStrategyParser class="org.apache.tika.parser.ocr.TesseractOCRParser">
+    <params>
+      <param name="language" type="string">spa</param> <!-- Spanish for OCR -->
+      <param name="dpi" type="int">150</param> <!-- Lower DPI for faster processing -->
+      <param name="tessdataPath" type="string">/usr/share/tesseract-ocr/5/tessdata</param>
+    </params>
+  </ocrStrategyParser>
+</properties>

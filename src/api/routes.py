@@ -24,6 +24,7 @@ def setup_routes(app: FastAPI, es_service: ElasticsearchService, pdf_processor: 
         documento_id: int = Form(6),
         archivo_digital_id: int = Form(6),
         nro_expediente: str = Form("EXP-XYZZZZZ"),
+        documento_nombre: str = Form("Documento Ejemplo"),
         anio_expediente: int = Form(2025)
     ):
         if not file.filename.lower().endswith(".pdf"):
@@ -49,7 +50,7 @@ def setup_routes(app: FastAPI, es_service: ElasticsearchService, pdf_processor: 
         try:
             result = pdf_processor.process_pdf(
                 temp_file_path, final_file_name, expediente_id, cuaderno_id,
-                documento_id, archivo_digital_id, nro_expediente, anio_expediente, es_service
+                documento_id, archivo_digital_id, nro_expediente, anio_expediente, documento_nombre, es_service
             )
             if result["status"] == "success":
                 if result["exists"] == 1:

@@ -15,7 +15,7 @@ class PDFProcessor:
         self.tika_server_url = settings.TIKA_SERVER_URL
         #self.es = ElasticsearchService
 
-    def process_pdf(self, pdf_path, file_name, expediente_id, cuaderno_id, documento_id, archivo_digital_id, nro_expediente, anio_expediente, es: ElasticsearchService):
+    def process_pdf(self, pdf_path, file_name, expediente_id, cuaderno_id, documento_id, archivo_digital_id, nro_expediente, anio_expediente, documento_nombre, es: ElasticsearchService):
         """
         Actualiza un documento en Elasticsearch por archivoDigitalId.
 
@@ -87,6 +87,7 @@ class PDFProcessor:
                         "ctx._source.nroExpediente = params.nroExpediente; "
                         "ctx._source.metadata = params.metadata; "
                         "ctx._source.anioExpediente = params.anioExpediente; "
+                        "ctx._source.documentoNombre = params.documentoNombre; "
                         "ctx._source.archivoDigital.contenido = params.contenido;",
                         "lang": "painless",
                         "params": {
@@ -96,6 +97,7 @@ class PDFProcessor:
                             "nroExpediente": nro_expediente,
                             "metadata": parsed.get("metadata", {}),
                             "anioExpediente": anio_expediente,
+                            "documentoNombre": documento_nombre,
                             "contenido": page_contents
                         }
                     }
@@ -109,6 +111,7 @@ class PDFProcessor:
                     "documentoId": documento_id,
                     "expedienteId": expediente_id,
                     "numeroExpediente": nro_expediente,
+                    "documentoNombre": documento_nombre,
                     "metadata": parsed.get("metadata", {}),
                     "archivoDigital": {
                         "rutaArchivoDigital": pdf_path,

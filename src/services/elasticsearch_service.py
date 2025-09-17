@@ -45,7 +45,7 @@ class ElasticsearchService:
             index (str): El nombre del índice en Elasticsearch (por defecto: "archivo_digital_edi").
         
         Returns:
-            bool: True si existe al menos un documento con el archivoDigitalId, False si no.
+            bool: 1 si existe al menos un documento con el archivoDigitalId, 0 si no existia y es un nuevo doc. y -1 cualquier otro error que se especifica en el mensaje de respuesta
         """
         try:            
             # Realizar la búsqueda
