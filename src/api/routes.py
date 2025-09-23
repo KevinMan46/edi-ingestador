@@ -7,6 +7,7 @@ from src.utils.logger import setup_logger
 from typing import List
 import tempfile
 import os
+from starlette.concurrency import run_in_threadpool
 
 logger = setup_logger(__name__)
 
@@ -80,3 +81,15 @@ def setup_routes(app: FastAPI, es_service: ElasticsearchService, pdf_processor: 
                 )
         finally:
             os.unlink(temp_file_path)
+
+    @app.post("/split-pdf")
+    async def split_pdf_endpoint(
+        input_pdf: str = Form(...),
+        chunk_size: int = Form(1000)
+    ):
+        result = await run_in_threadpool(pdf_processor.split_pdf_v2, input_pdf, chunk_size)
+        return JSONResponse(content={
+            "status": "success",
+            "message": "PDF split completed",
+            **result
+        })

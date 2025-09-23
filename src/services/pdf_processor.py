@@ -6,6 +6,8 @@ import tempfile
 from src.config.settings import settings
 from src.utils.logger import setup_logger
 from src.services.elasticsearch_service import ElasticsearchService
+from pathlib import Path
+import math
 
 logger = setup_logger(__name__)
 
@@ -142,3 +144,65 @@ class PDFProcessor:
                 "pages": [],
                 "message": "Error processing PDF: "+str(e)
             }
+        
+
+    def split_pdf(self, input_pdf: str, out_dir: str, chunk_size: int = 1000):
+        input_path = Path(input_pdf)
+        output_dir = Path(out_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        with fitz.open(str(input_path)) as doc:
+            total_pages = len(doc)
+            n_parts = math.ceil(total_pages / chunk_size)
+            indice_path = output_dir / "indice.txt"
+
+            with open(indice_path, "w", encoding="utf-8") as idx:
+                for i in range(n_parts):
+                    start = i * chunk_size
+                    end = min(start + chunk_size, total_pages) - 1
+
+                    out_file = output_dir / f"{input_path.stem}_part{i+1:05d}.pdf"
+                    new_doc = fitz.open()  # doc vacío
+
+                    new_doc.insert_pdf(doc, from_page=start, to_page=end)
+                    new_doc.save(out_file, deflate=False, garbage=0)
+                    new_doc.close()
+
+                    idx.write(f"{out_file.name} [{start+1}-{end+1}]\n")
+
+        return {
+            "total_pages": total_pages,
+            "parts": n_parts,
+            "index_file": str(indice_path),
+            "output_dir": str(output_dir)
+        }
+    
+    def split_pdf_v2(input_pdf: str, chunk_size: int = 1000):
+        input_path = Path(input_pdf)
+        output_dir = input_path.parent / f"{input_path.stem}_parts"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        with fitz.open(str(input_path)) as doc:
+            total_pages = len(doc)
+            n_parts = math.ceil(total_pages / chunk_size)
+            indice_path = output_dir / "indice.txt"
+
+            with open(indice_path, "w", encoding="utf-8") as idx:
+                for i in range(n_parts):
+                    start = i * chunk_size
+                    end = min(start + chunk_size, total_pages) - 1
+                    out_file = output_dir / f"{input_path.stem}_part{i+1:05d}.pdf"
+
+                    new_doc = fitz.open()
+                    new_doc.insert_pdf(doc, from_page=start, to_page=end)
+                    new_doc.save(out_file, deflate=False, garbage=0)
+                    new_doc.close()
+
+                    idx.write(f"{out_file.name} [{start+1}-{end+1}]\n")
+
+        return {
+            "total_pages": total_pages,
+            "parts": n_parts,
+            "index_file": str(indice_path),
+            "output_dir": str(output_dir)
+        }
