@@ -19,7 +19,8 @@ services:
       - ./src:/app/src
       - ./.env:/app/.env
       #- /home/administrador/files:${PDF_BASE_DIR}
-      - C:/Users/kasca/Documents/resoluciones-casaciones/ESCANEADOS:${PDF_BASE_DIR}
+      #- C:/Users/kasca/Documents/resoluciones-casaciones/ESCANEADOS:${PDF_BASE_DIR} #cuando se usa la ruta para docker
+      - ${PDF_BASE_DIR_HOST}:/data/pdfs #cuando se usa la ruta para Windows o Linux (HOST anfitrion, no docker)
 
   tika:
     image: apache/tika:3.1.0.0-full

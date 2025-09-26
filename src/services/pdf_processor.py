@@ -22,6 +22,7 @@ SFTP_PASSWORD = os.getenv("FTP_PASSWORD")
 SFTP_HOST = os.getenv("FTP_HOST")
 SFTP_PORT = int(os.getenv("FTP_PORT", 22))
 SFTP_DIR = os.getenv("FTP_DIR")
+DIR_HOST = os.getenv("PDF_BASE_DIR_HOST")
 
 class PDFProcessor:
     def __init__(self):
@@ -196,7 +197,8 @@ class PDFProcessor:
 
         # Si solo pasaron el nombre del archivo → lo buscamos en la carpeta base
         if not input_path.is_absolute():
-            input_path = PDF_BASE_DIR / input_path
+            #input_path = PDF_BASE_DIR / input_path
+            input_path = DIR_HOST / input_path
 
         if not input_path.exists():
             raise FileNotFoundError(f"El archivo {input_path} no existe")
