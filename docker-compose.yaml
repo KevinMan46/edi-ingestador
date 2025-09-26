@@ -3,11 +3,14 @@ services:
     build: .
     ports:
       - "8500:8000"
+    env_file:
+      - .env
     environment:
       - TIKA_SERVER_URL=http://tika:9998
       - ELASTICSEARCH_URL=${ELASTICSEARCH_URL}
       - ELASTICSEARCH_USER=${ELASTICSEARCH_USER}
       - ELASTICSEARCH_PASSWORD=${ELASTICSEARCH_PASSWORD}
+      - PDF_BASE_DIR=${PDF_BASE_DIR}
     depends_on:
       - tika
     networks:
@@ -15,6 +18,8 @@ services:
     volumes:
       - ./src:/app/src
       - ./.env:/app/.env
+      #- /home/administrador/files:${PDF_BASE_DIR}
+      - C:/Users/kasca/Documents/resoluciones-casaciones/ESCANEADOS:${PDF_BASE_DIR}
 
   tika:
     image: apache/tika:3.1.0.0-full

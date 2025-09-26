@@ -8,8 +8,14 @@ from typing import List
 import tempfile
 import os
 from starlette.concurrency import run_in_threadpool
+from pydantic import BaseModel
 
 logger = setup_logger(__name__)
+
+# -------- Modelos --------
+class SplitRequest(BaseModel):
+    filename: str
+    chunk_size: int = 1000
 
 def setup_routes(app: FastAPI, es_service: ElasticsearchService, pdf_processor: PDFProcessor):
     @app.on_event("startup")
@@ -87,9 +93,31 @@ def setup_routes(app: FastAPI, es_service: ElasticsearchService, pdf_processor: 
         input_pdf: str = Form(...),
         chunk_size: int = Form(1000)
     ):
-        result = await run_in_threadpool(pdf_processor.split_pdf_v2, input_pdf, chunk_size)
-        return JSONResponse(content={
-            "status": "success",
-            "message": "PDF split completed",
-            **result
-        })
+        try:
+            result = await run_in_threadpool(pdf_processor.split_pdf_v2, input_pdf, chunk_size)
+            return JSONResponse(content={
+                "status": "success",
+                "message": "PDF split completed",
+                **result
+            })
+        except FileNotFoundError as e:
+            return JSONResponse(status_code=404, content={
+                "status": "failure",
+                "message": str(e)
+            })
+        except Exception as e:
+            return JSONResponse(status_code=500, content={
+                "status": "failure",
+                "message": str(e)
+            })
+    
+    @app.post("/split-pdfs")
+    def split_pdf_endpoint_v2(input_pdf: str = Form(...), chunk_size: int = Form(1000)):
+        result = pdf_processor.split_pdf_v2(input_pdf, chunk_size)
+        return result
+    
+    @app.post("/split-pdf-ftp")
+    def split_pdf(req: SplitRequest):
+        splitter = PDFProcessor()
+        result = splitter.split_pdf_ftp(req.filename, req.chunk_size)
+        return result
