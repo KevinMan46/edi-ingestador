@@ -1,15 +1,15 @@
 import fitz  # PyMuPDF
 from tika import parser
 import tika
-import os
 import tempfile
 import paramiko
 from src.config.settings import settings
 from src.utils.logger import setup_logger
 from src.services.elasticsearch_service import ElasticsearchService
 from pathlib import Path
-import math
 import stat
+from ftplib import FTP, error_perm
+import math, os, shutil
 
 logger = setup_logger(__name__)
 
@@ -17,12 +17,17 @@ logger = setup_logger(__name__)
 # Cargar variables desde .env
 #load_dotenv()
 PDF_BASE_DIR = Path(os.getenv("PDF_BASE_DIR", "/data/pdfs"))
-SFTP_USER = os.getenv("FTP_USER")
-SFTP_PASSWORD = os.getenv("FTP_PASSWORD")
-SFTP_HOST = os.getenv("FTP_HOST")
-SFTP_PORT = int(os.getenv("FTP_PORT", 22))
-SFTP_DIR = os.getenv("FTP_DIR")
-DIR_HOST = os.getenv("PDF_BASE_DIR_HOST")
+SFTP_USER = os.getenv("SFTP_USER")
+SFTP_PASSWORD = os.getenv("SFTP_PASSWORD")
+SFTP_HOST = os.getenv("SFTP_HOST")
+SFTP_PORT = int(os.getenv("SFTP_PORT", 22))
+SFTP_DIR = os.getenv("SFTP_DIR")
+PDF_BASE_DIR = os.getenv("PDF_BASE_DIR")
+
+FTP_USER = os.getenv("FTP_USER")
+FTP_PASSWORD = os.getenv("FTP_PASSWORD")
+FTP_HOST = os.getenv("FTP_HOST")
+FTP_PORT = int(os.getenv("FTP_PORT", 21))
 
 class PDFProcessor:
     def __init__(self):
@@ -197,8 +202,7 @@ class PDFProcessor:
 
         # Si solo pasaron el nombre del archivo → lo buscamos en la carpeta base
         if not input_path.is_absolute():
-            #input_path = PDF_BASE_DIR / input_path
-            input_path = DIR_HOST / input_path
+            input_path = PDF_BASE_DIR / input_path
 
         if not input_path.exists():
             raise FileNotFoundError(f"El archivo {input_path} no existe")
@@ -265,6 +269,35 @@ class PDFProcessor:
         except FileNotFoundError:
             pass
 
+    def _ftp_rmdir_recursive(self, ftp: FTP, path: str):
+        """Eliminar recursivamente un directorio en FTP simple."""
+        try:
+            ftp.cwd(path)
+        except error_perm:
+            return
+
+        items = []
+        ftp.retrlines("LIST", items.append)
+
+        for item in items:
+            parts = item.split()
+            name = parts[-1]
+            if name in (".", ".."):
+                continue
+
+            full_path = f"{path}/{name}"
+
+            if item.upper().startswith("D"):  # Es un directorio
+                self._ftp_rmdir_recursive(ftp, full_path)
+                try:
+                    ftp.rmd(full_path)
+                except:
+                    pass
+            else:  # Es un archivo
+                try:
+                    ftp.delete(full_path)
+                except:
+                    pass
 
     def _clean_dir(self, path):
             """Borra todos los contenidos de un directorio remoto (archivos y subcarpetas)."""
@@ -300,7 +333,7 @@ class PDFProcessor:
         except Exception as e:
             logger.error(f"Error al limpiar {path}: {e}")
 
-    def split_pdf_ftp(self, input_pdf: str, chunk_size: int = 1000):
+    def split_pdf_sftp(self, input_pdf: str, chunk_size: int = 1000):
         local_tmp = Path("/tmp") / input_pdf
         local_tmp.parent.mkdir(parents=True, exist_ok=True)
 
@@ -382,3 +415,79 @@ class PDFProcessor:
                 logger.warning(f"Error limpiando archivos temporales: {e}")
             self.disconnect()
 
+
+    def split_pdf_ftp(self, input_pdf: str, chunk_size: int = 1000):
+        local_tmp = Path("/tmp") / Path(input_pdf).name
+        local_tmp.parent.mkdir(parents=True, exist_ok=True)
+
+        ftp = FTP(FTP_HOST)
+        ftp.login(FTP_USER, FTP_PASSWORD)
+
+        try:
+            # 1. Detectar carpeta y nombre del archivo remoto
+            remote_dir = os.path.dirname(input_pdf) or "."
+            remote_file = os.path.basename(input_pdf)
+
+            # 2. Descargar archivo original desde el FTP
+            ftp.cwd(remote_dir)
+            with open(local_tmp, "wb") as f:
+                ftp.retrbinary(f"RETR " + remote_file, f.write)
+
+            # 3. Procesar localmente en partes
+            output_dir = local_tmp.parent / f"{local_tmp.stem}_parts"
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            with fitz.open(str(local_tmp)) as doc:
+                total_pages = len(doc)
+                n_parts = math.ceil(total_pages / chunk_size)
+                indice_path = output_dir / "indice.txt"
+
+                with open(indice_path, "w", encoding="utf-8") as idx:
+                    for i in range(n_parts):
+                        start = i * chunk_size
+                        end = min(start + chunk_size, total_pages) - 1
+                        out_file = output_dir / f"{local_tmp.stem}_part{i+1:05d}.pdf"
+
+                        new_doc = fitz.open()
+                        new_doc.insert_pdf(doc, from_page=start, to_page=end)
+                        new_doc.save(out_file, deflate=False, garbage=0)
+                        new_doc.close()
+
+                        idx.write(f"{out_file.name} [{start+1}-{end+1}]\n")
+
+            # 4. Crear carpeta remota limpia justo al lado del PDF original
+            remote_output = f"{remote_dir}/{local_tmp.stem}_parts"
+
+            # Si ya existe, eliminarla recursivamente
+            try:
+                self._ftp_rmdir_recursive(ftp, remote_output)
+                ftp.rmd(remote_output)
+            except:
+                pass
+
+            # Crear carpeta nueva
+            ftp.mkd(remote_output)
+
+            # 5. Subir partes y el índice al FTP
+            ftp.cwd(remote_output)
+            for file in output_dir.iterdir():
+                with open(file, "rb") as f:
+                    ftp.storbinary(f"STOR " + file.name, f)
+
+            return {
+                "total_pages": total_pages,
+                "parts": n_parts,
+                "remote_output": remote_output,
+                "index_file": f"{remote_output}/indice.txt"
+            }
+
+        finally:
+            ftp.quit()
+            # Limpiar temporales locales
+            try:
+                if local_tmp.exists():
+                    local_tmp.unlink()
+                if output_dir.exists():
+                    shutil.rmtree(output_dir)
+            except:
+                pass

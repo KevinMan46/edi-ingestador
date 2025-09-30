@@ -89,34 +89,23 @@ def setup_routes(app: FastAPI, es_service: ElasticsearchService, pdf_processor: 
             os.unlink(temp_file_path)
 
     @app.post("/split-pdf")
-    async def split_pdf_endpoint(
-        input_pdf: str = Form(...),
-        chunk_size: int = Form(1000)
-    ):
-        try:
-            result = await run_in_threadpool(pdf_processor.split_pdf_v2, input_pdf, chunk_size)
-            return JSONResponse(content={
-                "status": "success",
-                "message": "PDF split completed",
-                **result
-            })
-        except FileNotFoundError as e:
-            return JSONResponse(status_code=404, content={
-                "status": "failure",
-                "message": str(e)
-            })
-        except Exception as e:
-            return JSONResponse(status_code=500, content={
-                "status": "failure",
-                "message": str(e)
-            })
-    
-    @app.post("/split-pdfs")
     def split_pdf_endpoint_v2(input_pdf: str = Form(...), chunk_size: int = Form(1000)):
         result = pdf_processor.split_pdf_v2(input_pdf, chunk_size)
         return result
     
-    @app.post("/split-pdf-ftp")
+    @app.post("/split-pdf-sftp")
+    def split_pdf(req: SplitRequest):
+        splitter = PDFProcessor()
+        result = splitter.split_pdf_sftp(req.filename, req.chunk_size)
+        return result
+    
+    @app.post(
+        "/split-pdf-ftp", 
+        summary="Particiona un PDF en el servidor FTP",
+        description="Particiona un PDF en el servidor FTP, lo descarga, lo divide en partes y sube las partes de nuevo al servidor.",
+        tags=["Items"],
+        response_description="El ítem solicitado"
+    )
     def split_pdf(req: SplitRequest):
         splitter = PDFProcessor()
         result = splitter.split_pdf_ftp(req.filename, req.chunk_size)
